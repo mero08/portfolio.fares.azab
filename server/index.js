@@ -1,12 +1,9 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
 import "dotenv/config";
 import express from "express";
 import helmet from "helmet";
-
 import cors from "cors"; 
-
 import { initDb } from "./lib/db.js";
 import { contactRouter } from "./routes/contact.js";
 
@@ -15,42 +12,40 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Vercel هو اللي بيحدد البورت تلقائياً
 const PORT = Number(process.env.PORT || 3000);
-const PUBLIC_DIR =
-  process.env.PUBLIC_DIR || path.resolve(__dirname, "..", "THE END"); // serve your existing frontend
+const PUBLIC_DIR = path.join(__dirname, "..", "THE END"); 
 
-// Security headers (safe defaults)
+app.use(cors()); // إضافة cors عشان لو الـ frontend كلم الـ backend
 app.use(
   helmet({
-    contentSecurityPolicy: false, // keep off for now because of external fonts + particles CDN
+    contentSecurityPolicy: false, 
   }),
 );
 
-// Parse JSON for APIs
 app.use(express.json({ limit: "250kb" }));
 
-// Initialize DB (creates file + table if missing)
+// تنبيه: قواعد البيانات SQLite على Vercel بتكون Read-Only
+// لو الموقع بيكتب بيانات، هتتمسح كل ما السيرفر يرست
 initDb();
 
-// Health check
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-// API routes
 app.use("/api", contactRouter);
-
-// Static site
 app.use(express.static(PUBLIC_DIR));
 
-// SPA-ish fallback: if someone refreshes on a hash-less route, serve index.html
 app.get("*", (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "index.html"));
 });
 
-app.listen(PORT, () => {
-  // eslint-disable-next-line no-console
-  console.log(`Server running on http://localhost:${PORT}`);
-  // eslint-disable-next-line no-console
-  console.log(`Serving frontend from: ${PUBLIC_DIR}`);
-});
+// ده السطر المهم لـ Vercel
+export default app; 
+
+// بنشغل الـ listen بس لو إحنا شغالين local مش على Vercel
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+}
